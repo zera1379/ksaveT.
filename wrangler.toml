@@ -1,11 +1,11 @@
-# Cloudflare Workers configuration with @opennextjs/cloudflare
+# Cloudflare Workers configuration
 name = "kenergysaveadmin"
-main = ".open-next/worker.js"
+main = "worker.js"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Assets configuration
-assets = { directory = ".open-next/assets", binding = "ASSETS" }
+assets = { directory = ".next/static", binding = "ASSETS" }
 
 # Observability
 [observability]
