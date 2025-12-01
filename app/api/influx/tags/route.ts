@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 
+export const runtime = 'edge'
+
 async function runFluxQuery(INFLUX_HOST: string, INFLUX_ORG: string, INFLUX_TOKEN: string, flux: string) {
   const queryUrl = `${INFLUX_HOST.replace(/\/$/, '')}/api/v2/query?org=${encodeURIComponent(INFLUX_ORG)}`
   const headers: Record<string, string> = {

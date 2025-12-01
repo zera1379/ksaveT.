@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -8,7 +10,7 @@ export async function POST(request: NextRequest) {
     // Simple authentication - you should use proper auth in production
     if (username === 'admin' && password === '9999') {
       // Generate a simple token (in production, use proper JWT)
-      const token = Buffer.from(`${username}:${Date.now()}`).toString('base64')
+      const token = btoa(`${username}:${Date.now()}`)
       
       return NextResponse.json({ 
         success: true, 

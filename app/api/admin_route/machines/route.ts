@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
+
+export const runtime = 'edge'
 
 export async function POST(req: Request) {
   try {
@@ -67,20 +67,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, status: influxRes.status, error: influxText }, { status: 502 })
     }
 
-    // persist JSON locally as NDJSON per day (useful for debugging / backup)
-    try {
-      const saved = { id: `m-${Date.now()}`, name, ksave, location: location || null, createdAt: new Date().toISOString() }
-      const outDir = path.join(process.cwd(), 'backups', 'influx_exports')
-      fs.mkdirSync(outDir, { recursive: true })
-      const fname = path.join(outDir, `${new Date().toISOString().slice(0, 10)}.ndjson`)
-      const now = new Date().toISOString()
-      const append = JSON.stringify({ writtenAt: now, machine: saved }) + '\n'
-      fs.appendFileSync(fname, append, { encoding: 'utf8' })
-      return NextResponse.json({ ok: true, machine: saved, written: 1, file: fname })
-    } catch (fileErr: any) {
-      const saved = { id: `m-${Date.now()}`, name, ksave, location: location || null, createdAt: new Date().toISOString() }
-      return NextResponse.json({ ok: true, machine: saved, note: 'written to influx; failed to write local file', fileError: String(fileErr) })
-    }
+    // File backup removed for Edge Runtime compatibility
+    const saved = { id: `m-${Date.now()}`, name, ksave, location: location || null, createdAt: new Date().toISOString() }
+    return NextResponse.json({ 
+      ok: true, 
+      machine: saved, 
+      written: 1,
+      note: 'Edge Runtime: local file backup disabled'
+    })
   } catch (e: any) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
   }

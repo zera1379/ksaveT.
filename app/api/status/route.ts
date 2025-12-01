@@ -1,47 +1,33 @@
 import { NextResponse } from 'next/server'
-import net from 'net'
-import { execSync } from 'child_process'
 
-async function tcpCheck(host: string, port: number, timeout = 1000) {
-  return new Promise<boolean>((resolve) => {
-    const socket = new net.Socket()
-    let done = false
-    socket.setTimeout(timeout)
-    socket.once('error', () => {
-      if (!done) {
-        done = true
-        socket.destroy()
-        resolve(false)
-      }
+export const runtime = 'edge'
+
+async function httpCheck(url: string, timeout = 2000) {
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+    const res = await fetch(url, { 
+      method: 'GET', 
+      signal: controller.signal,
+      cache: 'no-store'
     })
-    socket.once('timeout', () => {
-      if (!done) {
-        done = true
-        socket.destroy()
-        resolve(false)
-      }
-    })
-    socket.connect(port, host, () => {
-      if (!done) {
-        done = true
-        socket.end()
-        resolve(true)
-      }
-    })
-  })
+    clearTimeout(timeoutId)
+    return res.ok
+  } catch (e) {
+    return false
+  }
 }
 
 export async function GET() {
-  const host = '127.0.0.1'
-  const influxPort = Number(process.env.INFLUX_PORT || 8086)
-  const grafanaPort = Number(process.env.GRAFANA_PORT || 3000)
-  const mqttPort = Number(process.env.MQTT_PORT || 1883)
-
+  // Use environment variables to get service URLs (Cloudflare Workers can't access localhost)
+  const influxHost = process.env.INFLUX_HOST || process.env.DOCKER_INFLUXDB_INIT_HOST || 'http://127.0.0.1:8086'
+  const grafanaHost = process.env.GRAFANA_URL || 'http://127.0.0.1:3000'
+  
   const results: any = {}
 
   // InfluxDB health
   try {
-    const res = await fetch(`http://${host}:${influxPort}/health`, { method: 'GET', cache: 'no-store' })
+    const res = await fetch(`${influxHost}/health`, { method: 'GET', cache: 'no-store' })
     if (res.ok) {
       const body = await res.json().catch(() => ({}))
       results.influx = { ok: true, info: body }
@@ -54,7 +40,7 @@ export async function GET() {
 
   // Grafana health
   try {
-    const res = await fetch(`http://${host}:${grafanaPort}/api/health`, { method: 'GET', cache: 'no-store' })
+    const res = await fetch(`${grafanaHost}/api/health`, { method: 'GET', cache: 'no-store' })
     if (res.ok) {
       const body = await res.json().catch(() => ({}))
       results.grafana = { ok: true, info: body }
@@ -65,28 +51,10 @@ export async function GET() {
     results.grafana = { ok: false, error: String(e) }
   }
 
-  // MQTT TCP check
-  try {
-    const ok = await tcpCheck(host, mqttPort, 800)
-    results.mqtt = { ok }
-  } catch (e) {
-    results.mqtt = { ok: false, error: String(e) }
-  }
-
-  // Telegraf: check docker container status if docker available
-  try {
-    let telegrafUp = false
-    try {
-      const out = execSync("docker ps --filter name=telegraf --format '{{.Status}}'", { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] })
-      if (out && out.toLowerCase().includes('up')) telegrafUp = true
-    } catch (e) {
-      // docker not available or command failed
-      telegrafUp = false
-    }
-    results.telegraf = { ok: telegrafUp }
-  } catch (e) {
-    results.telegraf = { ok: false, error: String(e) }
-  }
+  // MQTT and Telegraf status checks removed in Edge Runtime
+  // These services would need separate monitoring endpoints
+  results.mqtt = { ok: null, note: 'TCP checks not available in Edge Runtime' }
+  results.telegraf = { ok: null, note: 'Docker checks not available in Edge Runtime' }
 
   return NextResponse.json({ services: results })
 }

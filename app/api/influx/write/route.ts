@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
 
-// Server route to write points to InfluxDB AND save a JSON copy locally (NDJSON per day)
+export const runtime = 'edge'
+
+// Server route to write points to InfluxDB (file backup removed for Edge Runtime)
 export async function POST(req: Request) {
   try {
     const INFLUX_HOST = process.env.INFLUX_HOST || 'http://127.0.0.1:8086'
@@ -41,16 +41,15 @@ export async function POST(req: Request) {
       return `"${String(v).replace(/"/g, '\\"')}"`
     }
 
-    // Load device alias map once (optional)
-    const aliasPath = path.join(process.cwd(), 'config', 'device_aliases.json')
-    let aliases: Record<string, string> = {}
+    // Device alias map - in Edge Runtime, load from environment variable or hardcode
+    const aliases: Record<string, string> = {}
     try {
-      if (fs.existsSync(aliasPath)) {
-        const raw = fs.readFileSync(aliasPath, 'utf8')
-        aliases = JSON.parse(raw || '{}')
+      const aliasJson = process.env.DEVICE_ALIASES
+      if (aliasJson) {
+        Object.assign(aliases, JSON.parse(aliasJson))
       }
     } catch (e) {
-      aliases = {}
+      // ignore parsing errors
     }
 
     const lines = points.map((p: any) => {
@@ -160,18 +159,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, status: influxRes.status, error: influxText }, { status: 502 })
     }
 
-    // persist JSON locally as NDJSON per day
-    try {
-      const outDir = path.join(process.cwd(), 'backups', 'influx_exports')
-      fs.mkdirSync(outDir, { recursive: true })
-      const fname = path.join(outDir, `${new Date().toISOString().slice(0, 10)}.ndjson`)
-      const now = new Date().toISOString()
-      const append = points.map((pt: any) => JSON.stringify({ writtenAt: now, point: pt })).join('\n') + '\n'
-      fs.appendFileSync(fname, append, { encoding: 'utf8' })
-      return NextResponse.json({ ok: true, written: points.length, bucket: INFLUX_BUCKET, file: fname })
-    } catch (fileErr: any) {
-      return NextResponse.json({ ok: true, written: points.length, bucket: INFLUX_BUCKET, note: 'written to influx; failed to write local file', fileError: String(fileErr) })
-    }
+    // File backup removed for Edge Runtime compatibility
+    // Consider using Cloudflare KV, R2, or external storage for backups
+    return NextResponse.json({ 
+      ok: true, 
+      written: points.length, 
+      bucket: INFLUX_BUCKET,
+      note: 'Edge Runtime: local file backup disabled'
+    })
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 500 })
   }

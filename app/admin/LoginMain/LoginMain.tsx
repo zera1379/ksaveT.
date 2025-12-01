@@ -119,7 +119,6 @@ const styles: { [k: string]: React.CSSProperties } = {
 		backgroundImage: 'linear-gradient(135deg, #0f172a 0%, #0b1220 100%)',
 		backgroundSize: 'cover',
 		padding: 32,
-		border: '5px solid #0f172a',
 		boxSizing: 'border-box'
 	},
 	overlay: {

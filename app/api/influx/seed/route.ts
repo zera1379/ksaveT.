@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import crypto from 'crypto'
+
+export const runtime = 'edge'
 
 // Dev-safe endpoint to seed demo machines into an InfluxDB bucket
 // POST only. In production, require INFLUX_SEED_TOKEN header to match env var.
@@ -37,9 +38,15 @@ export async function POST(req: Request) {
     let payload = ''
 
     for (const m of machines) {
-      // stable 10-digit numeric series number derived from id
-      const hex = crypto.createHash('md5').update(m.id).digest('hex').slice(0, 10)
-      const num = (parseInt(hex, 16) % 9000000000) + 1000000000
+      // stable 10-digit numeric series number derived from id (simple hash for Edge Runtime)
+      const encoder = new TextEncoder()
+      const data = encoder.encode(m.id)
+      let hash = 0
+      for (let i = 0; i < data.length; i++) {
+        hash = ((hash << 5) - hash) + data[i]
+        hash = hash & hash // Convert to 32-bit integer
+      }
+      const num = (Math.abs(hash) % 9000000000) + 1000000000
       const series_no = String(num)
 
       // basic machine_status (legacy)
